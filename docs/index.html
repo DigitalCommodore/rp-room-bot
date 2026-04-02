@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RP Room Builder — Docs</title>
+  <meta name="description" content="A Discord bot with a modern web UI for creating and managing roleplay room setups." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>" />
+
+  <!-- Docsify core -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.css" />
+
+  <style>
+    :root {
+      /* Cyberpunk / Discord palette */
+      --base-background-color: #0a0a0f;
+      --cover-background-color: #0a0a0f;
+      --sidebar-background: #0d0d14;
+      --sidebar-nav-link-color--active: #00f0ff;
+      --sidebar-nav-link-border-color--active: #00f0ff;
+      --sidebar-nav-link-color--hover: #00f0ff;
+      --sidebar-name-color: #00f0ff;
+      --heading-color: #e0e0ff;
+      --heading-h1-color: #00f0ff;
+      --heading-h2-color: #bf5af2;
+      --base-color: #c8c8d4;
+      --link-color: #00f0ff;
+      --link-color--hover: #00d4ff;
+      --code-inline-background: #1a1a2e;
+      --code-inline-color: #bf5af2;
+      --code-block-background: #0d0d14;
+      --blockquote-border-color: #bf5af2;
+      --table-head-background: #1a1a2e;
+      --table-row-odd-background: #0d0d14;
+      --notice-tip-border-color: #00f0ff;
+      --notice-important-border-color: #bf5af2;
+      --cover-heading-color: #00f0ff;
+      --cover-button-background: #00f0ff;
+      --cover-button-color: #0a0a0f;
+      --cover-blockquote-color: #8888aa;
+    }
+
+    /* Cyberpunk glow effects */
+    .sidebar-nav > ul > li > a {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.85em;
+    }
+
+    .sidebar-nav li.active > a {
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+
+    h1 {
+      text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      border-bottom: 2px solid #1a1a2e !important;
+      padding-bottom: 0.5em !important;
+    }
+
+    h2 {
+      text-shadow: 0 0 15px rgba(191, 90, 242, 0.3);
+    }
+
+    /* Neon horizontal rules */
+    hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #00f0ff, #bf5af2, transparent);
+      margin: 2em 0;
+    }
+
+    /* Glowing links */
+    a:hover {
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    /* Code blocks */
+    .token.keyword { color: #bf5af2; }
+    .token.string { color: #00f0ff; }
+    .token.function { color: #ff6b9d; }
+
+    /* Cover page */
+    section.cover {
+      background: radial-gradient(ellipse at center bottom, #1a0a2e 0%, #0a0a0f 70%) !important;
+    }
+
+    section.cover .cover-main > p:last-child a {
+      border-radius: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: all 0.3s ease;
+      border: 2px solid #00f0ff !important;
+      color: #00f0ff !important;
+      background: transparent !important;
+    }
+
+    section.cover .cover-main > p:last-child a:hover {
+      background: #00f0ff !important;
+      color: #0a0a0f !important;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+
+    section.cover .cover-main > p:last-child a:first-child {
+      background: #00f0ff !important;
+      color: #0a0a0f !important;
+    }
+
+    section.cover .cover-main > p:last-child a:first-child:hover {
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
+    }
+
+    /* Screenshot images */
+    .markdown-section img {
+      border-radius: 12px;
+      border: 1px solid #1a1a2e;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 240, 255, 0.05);
+      margin: 1em 0;
+    }
+
+    /* Badges */
+    .markdown-section img[alt="badge"] {
+      border: none;
+      box-shadow: none;
+      border-radius: 4px;
+      margin: 0 2px;
+    }
+
+    /* Tip boxes with neon border */
+    .markdown-section blockquote {
+      border-left: 4px solid #bf5af2;
+      background: rgba(191, 90, 242, 0.05);
+      padding: 1em;
+      border-radius: 0 8px 8px 0;
+    }
+
+    /* Tables */
+    .markdown-section table {
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .markdown-section th {
+      background: #1a1a2e;
+      color: #00f0ff;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.8em;
+      letter-spacing: 0.05em;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0f; }
+    ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a4e; }
+
+    /* Responsive images */
+    .markdown-section img:not([alt="badge"]) {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Feature grid for home page */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5em;
+      margin: 2em 0;
+    }
+
+    .feature-card {
+      background: #0d0d14;
+      border: 1px solid #1a1a2e;
+      border-radius: 12px;
+      padding: 1.5em;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: #00f0ff;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+    }
+
+    .feature-card h3 {
+      color: #00f0ff;
+      margin-top: 0;
+      font-size: 1em;
+    }
+
+    .feature-card p {
+      color: #8888aa;
+      margin-bottom: 0;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    window.$docsify = {
+      name: '🏰 RP Room Builder',
+      repo: 'https://github.com/DigitalCommodore/rp-room-bot',
+      coverpage: true,
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      search: {
+        placeholder: 'Search docs...',
+        noData: 'No results found',
+        paths: 'auto',
+      },
+      copyCode: {
+        buttonText: 'Copy',
+        successText: 'Copied!',
+      },
+    };
+  </script>
+
+  <!-- Docsify core -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <!-- Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2/dist/docsify-copy-code.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+</body>
+</html>
