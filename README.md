@@ -2,6 +2,8 @@
 
 A Discord bot with a modern web UI for creating and managing roleplay room descriptions and images. Deploy room setups to any channel with a single click — text descriptions, image galleries, and automatic pinning.
 
+[![Docs](https://img.shields.io/badge/docs-View%20Documentation-00f0ff?style=for-the-badge)](https://digitalcommodore.github.io/rp-room-bot/)
+
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)
 ![Discord.js](https://img.shields.io/badge/discord.js-v14-blue)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
