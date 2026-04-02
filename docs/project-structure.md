@@ -21,6 +21,7 @@ rp-room-bot/
 │   ├── index.js              # Express entry point + static file serving
 │   ├── api.js                # REST API routes (rooms, uploads, bot control)
 │   ├── bot.js                # Discord bot logic (deploy, update, pin, cleanup)
+│   ├── textSplitter.js       # Markdown-aware text splitting for long descriptions
 │   └── crypto.js             # AES-256-GCM token encryption
 │
 ├── configs/                  # Saved room configurations (JSON)

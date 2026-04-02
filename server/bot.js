@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, AttachmentBuilder, EmbedBuilder } from 'disc
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { splitText } from './textSplitter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -111,11 +112,14 @@ export async function getChannels(guildId) {
 
 const MAX_IMAGE_SLOTS = 5;
 const PLACEHOLDER_TEXT = '*[ Reserved for image ]*';
+const TEXT_PLACEHOLDER = '*[ Reserved for text ]*';
+const EXTRA_TEXT_SLOTS = 1; // number of spare text message slots to pre-allocate
 
 /**
  * Deploy a room configuration to a Discord channel.
- * Sends text message first, then pre-allocates 5 image slot messages.
- * Slots with images get the image; unused slots get a placeholder.
+ * Splits long text across multiple messages at paragraph/sentence boundaries,
+ * preserving markdown formatting across chunks.
+ * Then pre-allocates 5 image slot messages.
  * Pins all in reverse order so text appears at top of pins panel.
  * Returns the message IDs for storage.
  */
@@ -125,18 +129,29 @@ export async function deployRoom(config) {
   const channel = await client.channels.fetch(config.channelId);
   if (!channel) throw new Error(`Channel ${config.channelId} not found`);
 
-  const messageIds = { textMessageId: null, imageSlotIds: [] };
+  const messageIds = { textMessageIds: [], imageSlotIds: [] };
 
-  // 1. Send text message first
+  // 1. Send text messages (split if longer than 2000 chars) + reserved slots
   if (config.text) {
-    let textMsg;
     if (config.useEmbed) {
+      // Embeds have a 4096-char description limit — send as single embed
       const embed = buildEmbed(config);
-      textMsg = await channel.send({ embeds: [embed] });
+      const textMsg = await channel.send({ embeds: [embed] });
+      messageIds.textMessageIds.push(textMsg.id);
     } else {
-      textMsg = await channel.send({ content: config.text });
+      const chunks = splitText(config.text);
+      for (const chunk of chunks) {
+        const textMsg = await channel.send({ content: chunk });
+        messageIds.textMessageIds.push(textMsg.id);
+        await sleep(300);
+      }
     }
-    messageIds.textMessageId = textMsg.id;
+    // Pre-allocate extra text slots for future expansion
+    for (let i = 0; i < EXTRA_TEXT_SLOTS; i++) {
+      const reservedMsg = await channel.send({ content: TEXT_PLACEHOLDER });
+      messageIds.textMessageIds.push(reservedMsg.id);
+      await sleep(300);
+    }
   }
 
   // 2. Send exactly MAX_IMAGE_SLOTS messages — fill with images or placeholder
@@ -170,17 +185,19 @@ export async function deployRoom(config) {
     }
   }
 
-  if (messageIds.textMessageId) {
+  // Pin text messages in reverse order (last chunk pinned first, first chunk pinned last)
+  for (let i = messageIds.textMessageIds.length - 1; i >= 0; i--) {
     try {
-      const msg = await channel.messages.fetch(messageIds.textMessageId);
+      const msg = await channel.messages.fetch(messageIds.textMessageIds[i]);
       await msg.pin();
+      await sleep(500);
     } catch (err) {
-      console.error(`Failed to pin text message: ${err.message}`);
+      console.error(`Failed to pin text message ${i}: ${err.message}`);
     }
   }
 
   // 4. Clean up pin notification messages
-  const earliestMsgId = messageIds.textMessageId || messageIds.imageSlotIds[0];
+  const earliestMsgId = messageIds.textMessageIds[0] || messageIds.imageSlotIds[0];
   if (earliestMsgId) {
     await sleep(1000);
     await deletePinNotifications(channel, earliestMsgId);
@@ -191,8 +208,8 @@ export async function deployRoom(config) {
 
 /**
  * Update an existing deployed room in-place by editing existing messages.
+ * Handles text that may now need more or fewer message chunks than before.
  * Fills image slots with images where available, resets unused slots to placeholder.
- * Does NOT delete or re-create messages — pins stay intact.
  */
 export async function updateRoom(config, existingMessageIds) {
   if (!client || !botReady) throw new Error('Bot is not connected');
@@ -200,24 +217,53 @@ export async function updateRoom(config, existingMessageIds) {
   const channel = await client.channels.fetch(config.channelId);
   if (!channel) throw new Error(`Channel ${config.channelId} not found`);
 
+  // Normalize: support both old (textMessageId) and new (textMessageIds) formats
+  const oldTextIds = existingMessageIds.textMessageIds
+    || (existingMessageIds.textMessageId ? [existingMessageIds.textMessageId] : []);
+
   const updatedIds = {
-    textMessageId: existingMessageIds.textMessageId,
+    textMessageIds: [...oldTextIds],
     imageSlotIds: [...(existingMessageIds.imageSlotIds || [])],
   };
 
-  // 1. Update text message in-place
-  if (updatedIds.textMessageId && config.text) {
-    try {
-      const textMsg = await channel.messages.fetch(updatedIds.textMessageId);
-      if (config.useEmbed) {
-        const embed = buildEmbed(config);
-        await textMsg.edit({ content: null, embeds: [embed] });
-      } else {
-        await textMsg.edit({ content: config.text, embeds: [] });
+  // 1. Update text messages (fill slots or reset to placeholder)
+  if (config.text) {
+    let chunks;
+    if (config.useEmbed) {
+      chunks = [null]; // null signals "use embed"
+    } else {
+      chunks = splitText(config.text);
+    }
+
+    const totalSlots = updatedIds.textMessageIds.length;
+
+    // Check capacity — refuse update if text exceeds available slots
+    if (chunks.length > totalSlots) {
+      throw new Error(
+        `Text requires ${chunks.length} messages but only ${totalSlots} text slots are available. ` +
+        `You need to redeploy the room to add more text slots.`
+      );
+    }
+
+    // Fill slots: content chunks first, then reset remaining to placeholder
+    for (let i = 0; i < totalSlots; i++) {
+      try {
+        const textMsg = await channel.messages.fetch(updatedIds.textMessageIds[i]);
+        if (i < chunks.length) {
+          if (chunks[i] === null) {
+            const embed = buildEmbed(config);
+            await textMsg.edit({ content: null, embeds: [embed] });
+          } else {
+            await textMsg.edit({ content: chunks[i], embeds: [] });
+          }
+        } else {
+          // Reset unused slot to placeholder
+          await textMsg.edit({ content: TEXT_PLACEHOLDER, embeds: [] });
+        }
+        await sleep(300);
+      } catch (err) {
+        console.error(`Failed to edit text message ${i}: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`Failed to edit text message: ${err.message}`);
-      throw new Error(`Could not edit text message: ${err.message}`);
     }
   }
 
@@ -243,9 +289,60 @@ export async function updateRoom(config, existingMessageIds) {
     await sleep(300);
   }
 
-  // No new pins needed — all slots were pinned during initial deploy
-
   return updatedIds;
+}
+
+/**
+ * Check whether updated text fits in the existing text message slots.
+ * Returns { fits, chunksNeeded, slotsAvailable }.
+ */
+export function checkTextCapacity(text, useEmbed, existingMessageIds) {
+  if (!text) return { fits: true, chunksNeeded: 0, slotsAvailable: 0 };
+
+  const textIds = existingMessageIds?.textMessageIds
+    || (existingMessageIds?.textMessageId ? [existingMessageIds.textMessageId] : []);
+  const slotsAvailable = textIds.length;
+
+  let chunksNeeded;
+  if (useEmbed) {
+    chunksNeeded = 1;
+  } else {
+    chunksNeeded = splitText(text).length;
+  }
+
+  return { fits: chunksNeeded <= slotsAvailable, chunksNeeded, slotsAvailable };
+}
+
+/**
+ * Delete all previously deployed messages for a room (text + image slots).
+ * Used before a fresh redeploy to clean up the channel.
+ */
+export async function deleteDeployedMessages(channelId, existingMessageIds) {
+  if (!client || !botReady) throw new Error('Bot is not connected');
+
+  const channel = await client.channels.fetch(channelId);
+  if (!channel) throw new Error(`Channel ${channelId} not found`);
+
+  // Collect all message IDs to delete
+  const allIds = [
+    ...(existingMessageIds.textMessageIds || []),
+    ...(existingMessageIds.textMessageId ? [existingMessageIds.textMessageId] : []),
+    ...(existingMessageIds.imageSlotIds || []),
+  ];
+
+  let deleted = 0;
+  for (const msgId of allIds) {
+    try {
+      const msg = await channel.messages.fetch(msgId);
+      await msg.delete();
+      deleted++;
+      await sleep(300);
+    } catch (err) {
+      console.error(`Failed to delete message ${msgId}: ${err.message}`);
+    }
+  }
+
+  return deleted;
 }
 
 /**

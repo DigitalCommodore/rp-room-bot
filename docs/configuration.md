@@ -44,15 +44,15 @@ Each room config is a JSON file in `configs/`. Here's what a typical one looks l
   "images": ["uploads/abc123.png", "uploads/def456.jpg"],
   "deployed": true,
   "messageIds": {
-    "textMessageId": "111222333",
-    "imageSlotIds": ["444555666", "777888999", ...]
+    "textMessageIds": ["111222333", "222333444", "333444555"],
+    "imageSlotIds": ["444555666", "555666777", "666777888", "777888999", "888999000"]
   },
   "createdAt": "2026-04-02T...",
   "updatedAt": "2026-04-02T..."
 }
 ```
 
-You can edit these files directly if needed, but it's easier to use the web UI.
+The `textMessageIds` array contains one ID per text message slot (content chunks plus reserved slots). The `imageSlotIds` array always contains exactly 5 entries. You can edit these files directly if needed, but it's easier to use the web UI.
 
 ---
 

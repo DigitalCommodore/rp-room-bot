@@ -13,6 +13,8 @@ import {
   getChannels,
   deployRoom,
   updateRoom,
+  checkTextCapacity,
+  deleteDeployedMessages,
 } from './bot.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -259,6 +261,17 @@ router.delete('/rooms/:id', (req, res) => {
 // Deploy & Update Routes
 // =====================
 
+/** GET /api/rooms/:id/text-capacity - Check if text fits in existing slots */
+router.get('/rooms/:id/text-capacity', (req, res) => {
+  const config = loadConfig(req.params.id);
+  if (!config) return res.status(404).json({ error: 'Config not found' });
+  if (!config.deployed || !config.messageIds) {
+    return res.json({ deployed: false, fits: true, chunksNeeded: 0, slotsAvailable: 0 });
+  }
+  const result = checkTextCapacity(config.text, config.useEmbed, config.messageIds);
+  res.json({ deployed: true, ...result });
+});
+
 /** POST /api/rooms/:id/deploy - Deploy room to Discord */
 router.post('/rooms/:id/deploy', async (req, res) => {
   if (!isBotReady()) return res.status(400).json({ error: 'Bot not connected' });
@@ -286,6 +299,33 @@ router.post('/rooms/:id/deploy', async (req, res) => {
     }
   } catch (err) {
     console.error('Deploy error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/rooms/:id/redeploy - Delete old messages and deploy fresh */
+router.post('/rooms/:id/redeploy', async (req, res) => {
+  if (!isBotReady()) return res.status(400).json({ error: 'Bot not connected' });
+
+  const config = loadConfig(req.params.id);
+  if (!config) return res.status(404).json({ error: 'Config not found' });
+  if (!config.channelId) return res.status(400).json({ error: 'No channel ID set' });
+
+  try {
+    // 1. Delete old messages if they exist
+    if (config.deployed && config.messageIds) {
+      await deleteDeployedMessages(config.channelId, config.messageIds);
+    }
+
+    // 2. Fresh deploy
+    const messageIds = await deployRoom(config);
+    config.deployed = true;
+    config.messageIds = messageIds;
+    config.updatedAt = new Date().toISOString();
+    saveConfig(config);
+    res.json({ success: true, action: 'redeployed', messageIds });
+  } catch (err) {
+    console.error('Redeploy error:', err);
     res.status(500).json({ error: err.message });
   }
 });

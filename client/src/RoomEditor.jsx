@@ -8,7 +8,11 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [toast, setToast] = useState(null);
+  const [capacityWarning, setCapacityWarning] = useState(null);
+  const [showRedeployModal, setShowRedeployModal] = useState(false);
+  const [redeploying, setRedeploying] = useState(false);
   const saveTimeout = useRef(null);
+  const capacityTimeout = useRef(null);
 
   // Load channels when guild changes
   useEffect(() => {
@@ -18,6 +22,29 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
       setChannels([]);
     }
   }, [form.guildId]);
+
+  // Check text capacity when text changes on a deployed room
+  useEffect(() => {
+    if (!form.deployed || !form.messageIds) {
+      setCapacityWarning(null);
+      return;
+    }
+    if (capacityTimeout.current) clearTimeout(capacityTimeout.current);
+    capacityTimeout.current = setTimeout(async () => {
+      try {
+        const result = await api.getTextCapacity(form.id);
+        if (result.deployed && !result.fits) {
+          setCapacityWarning(
+            `Text needs ${result.chunksNeeded} messages but only ${result.slotsAvailable} text slots exist. You'll need to redeploy to add more slots.`
+          );
+        } else {
+          setCapacityWarning(null);
+        }
+      } catch {
+        setCapacityWarning(null);
+      }
+    }, 1000);
+  }, [form.text, form.useEmbed, form.deployed, form.id, form.messageIds]);
 
   // Auto-save debounced
   const autoSave = useCallback(
@@ -84,6 +111,23 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
     updateField('images', images);
   };
 
+  const handleRedeploy = async () => {
+    setShowRedeployModal(false);
+    setRedeploying(true);
+    try {
+      const result = await api.redeployRoom(form.id);
+      const updated = await api.getRoom(form.id);
+      setForm(updated);
+      onUpdate(updated);
+      setCapacityWarning(null);
+      showToast('Room redeployed to Discord!');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setRedeploying(false);
+    }
+  };
+
   // Group channels by category
   const channelsByCategory = channels.reduce((acc, ch) => {
     const cat = ch.parent || 'No Category';
@@ -143,6 +187,22 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
           </button>
         </div>
       </div>
+
+      {/* Capacity Warning */}
+      {capacityWarning && (
+        <div className="bg-discord-yellow/10 border border-discord-yellow/30 text-discord-yellow px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-4">
+          <div>
+            <span className="font-semibold">Warning:</span> {capacityWarning}
+          </div>
+          <button
+            onClick={() => setShowRedeployModal(true)}
+            disabled={redeploying || !botConnected}
+            className="shrink-0 px-3 py-1.5 bg-discord-yellow/20 hover:bg-discord-yellow/30 border border-discord-yellow/40 rounded-lg text-discord-yellow text-xs font-semibold transition-colors"
+          >
+            {redeploying ? 'Redeploying...' : 'Redeploy Room'}
+          </button>
+        </div>
+      )}
 
       {/* Server & Channel Selection */}
       <div className="card">
@@ -293,8 +353,16 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
           <span className="text-xs text-gray-500">
             Supports Discord markdown: **bold**, *italic*, __underline__, ~~strikethrough~~
           </span>
-          <span className={`text-xs ${form.text.length > 1900 ? 'text-discord-yellow' : 'text-gray-500'}`}>
-            {form.text.length} / {form.useEmbed ? '4096' : '2000'}
+          <span className="text-xs text-gray-500">
+            {form.text.length} chars
+            {!form.useEmbed && form.text.length > 2000 && (
+              <span className="text-discord-yellow ml-1">
+                (will split into ~{Math.ceil(form.text.length / 1800)} messages)
+              </span>
+            )}
+            {form.useEmbed && form.text.length > 4096 && (
+              <span className="text-discord-red ml-1">(exceeds 4096 embed limit)</span>
+            )}
           </span>
         </div>
       </div>
@@ -315,13 +383,34 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
       {/* Deploy Info */}
       {form.deployed && form.messageIds && (
         <div className="card bg-discord-dark/50">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Deployment Info
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Deployment Info
+            </h3>
+            <button
+              onClick={() => setShowRedeployModal(true)}
+              disabled={redeploying || !botConnected}
+              className="text-xs text-gray-500 hover:text-discord-yellow transition-colors"
+              title="Delete all messages and deploy fresh"
+            >
+              {redeploying ? 'Redeploying...' : 'Redeploy'}
+            </button>
+          </div>
           <div className="text-xs text-gray-500 space-y-1">
-            {form.messageIds.textMessageId && (
-              <p>Text Message ID: <span className="text-gray-400 font-mono">{form.messageIds.textMessageId}</span></p>
-            )}
+            {/* Support both old (textMessageId) and new (textMessageIds) formats */}
+            {(() => {
+              const textIds = form.messageIds.textMessageIds || (form.messageIds.textMessageId ? [form.messageIds.textMessageId] : []);
+              const chunkCount = !form.useEmbed && form.text ? Math.ceil(form.text.length / 1800) || 1 : 1;
+              return textIds.map((id, i) => {
+                const isFilled = i < chunkCount;
+                return (
+                  <p key={id}>
+                    Text {textIds.length > 1 ? `${i + 1}` : ''} {isFilled ? '(filled)' : '(reserved)'}:{' '}
+                    <span className="text-gray-400 font-mono">{id}</span>
+                  </p>
+                );
+              });
+            })()}
             {form.messageIds.imageSlotIds?.map((id, i) => {
               const hasImage = form.images && i < form.images.length;
               return (
@@ -334,6 +423,45 @@ export default function RoomEditor({ room, guilds, botConnected, onUpdate }) {
             <p className="mt-2 text-gray-600">
               Last deployed: {new Date(form.updatedAt).toLocaleString()}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Redeploy Confirmation Modal */}
+      {showRedeployModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-discord-darker border border-gray-700 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <h2 className="text-lg font-bold text-white mb-3">Redeploy Room?</h2>
+            <div className="text-sm text-gray-300 space-y-3 mb-6">
+              <p>
+                This will <span className="text-discord-red font-semibold">delete all existing messages</span> for
+                this room in the Discord channel and send everything fresh.
+              </p>
+              <div className="bg-discord-dark/80 rounded-lg p-3 space-y-2 text-gray-400 text-xs">
+                <p><span className="text-discord-red">✕</span> All current text and image messages will be deleted</p>
+                <p><span className="text-discord-red">✕</span> Existing pins for this room will be removed</p>
+                <p><span className="text-discord-red">✕</span> Anyone who linked or referenced the old messages will see broken links</p>
+                <p className="pt-1 border-t border-gray-700">
+                  <span className="text-discord-green">✓</span> New messages will be posted with fresh text and image slots
+                </p>
+                <p><span className="text-discord-green">✓</span> Everything will be re-pinned in the correct order</p>
+                <p><span className="text-discord-green">✓</span> Text slots will be resized to fit your current description</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowRedeployModal(false)}
+                className="px-4 py-2 rounded-lg text-sm text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRedeploy}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-discord-red hover:bg-discord-red/80 transition-colors"
+              >
+                Delete &amp; Redeploy
+              </button>
+            </div>
           </div>
         </div>
       )}

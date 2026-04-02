@@ -49,17 +49,29 @@ Just re-enter your token and check "Remember token."
 
 Currently, each room supports up to 5 images. This is a deliberate design choice to keep the pin count manageable (Discord has a 50-pin limit per channel). If you need more, consider splitting the room into multiple configurations.
 
+### What if my room description is longer than 2,000 characters?
+
+No problem. The bot automatically splits long text across multiple Discord messages at paragraph and sentence boundaries. Markdown formatting (bold, italic, underline, strikethrough, spoilers) is preserved across splits. A character counter in the editor shows how many messages your text will need.
+
 ### What happens if I manually delete a deployed message in Discord?
 
-The bot will get an error when trying to edit that message on the next update. For now, the best approach is to delete the room config in the sidebar and redeploy fresh.
+The bot will get an error when trying to edit that message on the next update. Use the **Redeploy** button in the Deployment Info section to delete the remaining messages and deploy a fresh set with new IDs.
 
 ### Can I deploy the same room to multiple channels?
 
 Not directly from one config — each room config targets a single channel. But you can create duplicate room configs (with the same text and images) pointing to different channels.
 
-### Do reserved image slots show up in the channel?
+### Do reserved slots show up in the channel?
 
-Yes, they appear as messages that say *"[ Reserved for image ]"*. They're pinned along with everything else. When you add images later and update, the placeholders are replaced with your images.
+Yes. Reserved image slots appear as *"[ Reserved for image ]"* and reserved text slots appear as *"[ Reserved for text ]"*. They're pinned along with everything else. When you add content later and update, the placeholders are replaced.
+
+### What happens when my text outgrows the available slots?
+
+A yellow warning banner appears in the editor explaining that the text now requires more message slots than were allocated during the original deploy. You won't be able to update in place — instead, click the **Redeploy Room** button. This deletes the old messages and sends a fresh set with the correct number of slots. A confirmation modal explains everything that will happen before you commit.
+
+### What is redeploying?
+
+Redeploying deletes all of a room's existing messages from the Discord channel and sends a completely fresh set. This is useful when text outgrows the available slots, when messages were manually deleted, or when you just want a clean start. The new messages are pinned in the correct order. Note that any links others have shared to the old messages will break.
 
 ---
 

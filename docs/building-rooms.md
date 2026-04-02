@@ -30,8 +30,13 @@ Type your room description in the text area. You can use Discord markdown:
 | `*italic*` | *italic* |
 | `__underline__` | underlined |
 | `~~strikethrough~~` | ~~strikethrough~~ |
+| `||spoiler||` | spoiler text |
 | `> quote` | blockquote |
 | `\`code\`` | inline code |
+
+There's no character limit to worry about — write as much as you need. For plain text, the bot automatically splits long descriptions across multiple Discord messages at natural paragraph and sentence boundaries. Markdown formatting is preserved across splits, so bold, italic, and other styling won't break even if a split falls in the middle of a formatted section.
+
+A character counter below the text area shows the current length and, if the text exceeds 2,000 characters, how many messages it will be split into.
 
 ### Using Embeds
 
@@ -42,7 +47,7 @@ Toggle **Use Embed** to switch from plain text to a Discord rich embed. Embeds g
 - **Thumbnail URL** — small image in the top-right corner
 - **Embed Image URL** — large image at the bottom of the embed
 
-The description field supports up to 4,096 characters in embed mode (vs 2,000 for plain text).
+The description field supports up to 4,096 characters in embed mode. Embeds are always sent as a single message (no splitting).
 
 ---
 

@@ -47,3 +47,7 @@ export const deleteRoom = (id) =>
   request(`/rooms/${id}`, { method: 'DELETE' });
 export const deployRoom = (id) =>
   request(`/rooms/${id}/deploy`, { method: 'POST' });
+export const getTextCapacity = (id) =>
+  request(`/rooms/${id}/text-capacity`);
+export const redeployRoom = (id) =>
+  request(`/rooms/${id}/redeploy`, { method: 'POST' });
