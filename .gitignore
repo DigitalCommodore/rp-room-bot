@@ -1,0 +1,10 @@
+node_modules/
+server/public/
+uploads/*
+!uploads/.gitkeep
+configs/*
+!configs/.gitkeep
+settings.json
+.env
+*.zip
+release-staging/

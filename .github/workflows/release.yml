@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v1.0.0, v1.2.3
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install all dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Remove dev dependencies and reinstall production only
+        run: |
+          rm -rf node_modules
+          npm install --production
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release zip
+        run: |
+          mkdir -p release-staging/rp-room-bot
+          # Copy everything needed to run
+          cp -r server release-staging/rp-room-bot/
+          cp -r node_modules release-staging/rp-room-bot/
+          cp package.json release-staging/rp-room-bot/
+          cp start.bat release-staging/rp-room-bot/
+          cp start.sh release-staging/rp-room-bot/
+          cp README.md release-staging/rp-room-bot/
+          cp LICENSE release-staging/rp-room-bot/ 2>/dev/null || true
+          # Create empty dirs for runtime use
+          mkdir -p release-staging/rp-room-bot/configs
+          mkdir -p release-staging/rp-room-bot/uploads
+          # Zip it up
+          cd release-staging
+          zip -r ../rp-room-bot-${{ steps.version.outputs.VERSION }}.zip rp-room-bot/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: RP Room Builder ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## RP Room Builder ${{ steps.version.outputs.VERSION }}
+
+            ### Quick Start
+            1. Download the zip below
+            2. Extract it
+            3. **Windows:** double-click `start.bat`
+            4. **Mac/Linux:** run `chmod +x start.sh && ./start.sh`
+            5. Open http://localhost:3000
+
+            > Requires [Node.js](https://nodejs.org/) v18+. The launcher handles everything else.
+
+            See the [README](../../blob/main/README.md) for full documentation.
+          files: rp-room-bot-${{ steps.version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
