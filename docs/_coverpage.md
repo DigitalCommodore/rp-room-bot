@@ -10,5 +10,5 @@ A Discord bot with a sleek web UI for building room descriptions, managing image
 ![badge](https://img.shields.io/badge/discord.js-v14-bf5af2?style=flat-square)
 ![badge](https://img.shields.io/badge/license-MIT-ff6b9d?style=flat-square)
 
-[Get Started](#getting-started)
+[Get Started](#/getting-started)
 [GitHub](https://github.com/DigitalCommodore/rp-room-bot)
